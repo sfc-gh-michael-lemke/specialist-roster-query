@@ -1,6 +1,6 @@
 # Specialist Roster Query
 
-A Cortex Code skill for querying specialist/headcount roster Excel files to find people by F3 Function, Workload, Sales Scope, Sales Region, or other criteria.
+A Cortex Code skill for querying specialist/headcount roster data from Snowflake to find people by ETM Role, Territory, Market, Theater, Region, or other criteria.
 
 ## Installation
 
@@ -13,38 +13,53 @@ cp SKILL.md ~/.cortex/skills/specialist-roster-query/SKILL.md
 ## Usage
 
 The skill auto-triggers when you ask questions like:
-- "which AFEs support AI/ML in AMS"
-- "who supports Data Engineering in USMajors"
-- "list specialists in EMEA"
+- "which AFEs support FSI"
+- "who supports Healthcare in USMajors"
+- "list Industry Principals in EMEA"
+- "which Product Specialists are in APJ"
 
 Or invoke directly with `/specialist-roster-query`.
 
+## Data Source
+
+Queries Snowflake tables:
+- `IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER` - Specialist assignments
+- `SALES.PLANNING.TERRITORY_HIERARCHY_FYPLANNING` - Territory hierarchy
+
 ## Features
 
-- Queries Excel roster files (`.xlsx`) using pandas
-- Filters by F3 Function, Workload, Sales Scope, Sales Region
-- Handles column name variations between file versions
-- Shows open positions with clean "Open Position" label
+- Queries live Snowflake data for up-to-date roster information
+- Filters by ETM Role, Territory, Market, Theater, Region
+- Deduplicates assignments using most recent record per person-role-territory
 - Excludes managers when requested
 - Outputs formatted markdown tables with counts and summaries
 
 ## Supported Filter Values
 
-### F3 Function
-- `AFE` - Applied Field Engineer
-- `AFE Mgmt` - AFE Manager
-- `Field CTO`, `Field CTO Mgmt`
-- `Data Cloud Specialist`
-- `AI Specialist`, `Solution Innovation`
+### ETM Role
+- `Product AFE`, `Product AFE Manager`, `Team AFE`
+- `Industry Principal`, `Industry Principal Manager`, `Team Industry Principal`
+- `Industry Architect`, `Industry Architect Manager`, `Team Industry Architect`
+- `Value Engineer`
+- `Product Specialist`, `Product Specialist Manager`
+- `Territory Visibility`, `FinOps`
 
-### Workload
-- `AI/ML`, `ML`, `Data Engineering`, `OLTP`, `Analytics`, `Apps & Collab`
+### Market
+- `AMS` - Americas
+- `EMEA_Mkt` - Europe/Middle East/Africa
+- `APJ_Mkt` - Asia Pacific Japan
 
-### Sales Scope (Market or Theater)
-- `AMS`, `USMajors`, `AMSExpansion`, `AMSAcquisition`, `USPubSec`, `EMEA`, `APJ`
+### Theater
+- `USMajors`, `AMSExpansion`, `AMSAcquisition`, `USPubSec`
+- `EMEA`, `APJ`
+- `AMS Pooled` (default)
 
-### Sales Region
-- `Pooled`, `FSI`, `FSIGlobals`, `HCLS`, `MFG`, `RCG`, `TMT`, `Federal`, `SLED`, `LATAM`, etc.
+### Region
+- `FSI`, `FSIGlobals`, `HCLS`, `MFG`, `RCG`, `TMT`
+- `Federal`, `SLED`, `Commercial`
+- `NortheastExp`, `SoutheastExp`, `SouthwestExp`, `NorthwestExp`, `CentralExp`, `USGrowthExp`, `CanadaExp`
+- `LATAM`, `ANZ`, `UK`, `META`, `SouthEMEA`, `EMEACommercial`
+- Various `*Pooled` designations
 
 ## License
 
