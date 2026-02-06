@@ -31,6 +31,7 @@ Queries Snowflake tables:
 - Queries live Snowflake data for up-to-date roster information
 - Filters by ETM Role, Territory, Market, Theater, Region
 - Deduplicates assignments using most recent record per person-role-territory
+- **Counts unique people (headcount), not rows** - one person can have multiple territory assignments
 - Excludes managers when requested
 - Outputs formatted markdown tables with counts and summaries
 

@@ -201,24 +201,35 @@ ORDER BY PERSON_NAME
 ## Output Format
 
 Present results as a markdown table with:
-1. Count of unique people and total assignments
+1. **Count of unique people** (not rows) - use `COUNT(DISTINCT PERSON_NAME)` since one person can have multiple territory assignments
 2. Table with relevant columns (Person Name, ETM Role, Territory, Theater, Region)
 3. Summary by key groupings if relevant
 
+**IMPORTANT**: Always count unique people, not total rows. One person can have multiple territory assignments, so row count will be higher than actual headcount.
+
 **Example Output:**
 ```
-## Product AFEs Supporting AMS (No Managers): 15 people
+## Product AFEs Supporting AMS (No Managers): 15 unique people
 
-| Person Name | ETM Role | Territory | Theater | Region |
-|-------------|----------|-----------|---------|--------|
-| Adam Timm (18131) | Product AFE | CommAcqWest | AMSAcquisition | CommAcqWest |
-| Adam Timm (18131) | Product AFE | USGrowthExp | AMSExpansion | USGrowthExp |
+| Person Name | ETM Role | Territories |
+|-------------|----------|-------------|
+| Adam Timm (18131) | Product AFE | CommAcqWest, USGrowthExp, CanadaExp |
+| Marc Henderson (3959) | Product AFE | RCG, MFG |
 ...
 
-**Summary:**
-- **8** in AMSExpansion
-- **5** in AMSAcquisition
-- **2** in USMajors
+**Summary by Theater:**
+- **8 people** in AMSExpansion
+- **5 people** in AMSAcquisition
+- **2 people** in USMajors
+```
+
+**Query to get unique counts:**
+```sql
+-- Count unique people by role
+SELECT ETM_ROLE, COUNT(DISTINCT PERSON_NAME) as HEADCOUNT
+FROM (<base_query>)
+GROUP BY ETM_ROLE
+ORDER BY HEADCOUNT DESC
 ```
 
 ## Common Query Patterns
@@ -244,5 +255,5 @@ Add: `WHERE ETM_ROLE ILIKE '%AFE%' AND ETM_ROLE NOT ILIKE '%Manager%' AND REGION
 - `IS_ACTIVE = 1` filters to only active assignments
 - The COALESCE on THEATER_NAME defaults to 'AMS Pooled' when no territory hierarchy match is found
 - The CASE statement for REGION_NAME creates "Pooled" designations when no specific region exists
-- Some people have multiple rows due to multiple territory assignments - this is expected
+- **One person can have multiple rows due to multiple territory assignments** - always count unique PERSON_NAME for headcount
 - Use ILIKE for case-insensitive pattern matching in Snowflake
