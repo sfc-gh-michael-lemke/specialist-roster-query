@@ -1,189 +1,248 @@
 ---
 name: specialist-roster-query
-description: "Query specialist/headcount roster Excel files to find people by F3 Function, Workload, Sales Scope, Sales Region, or other criteria. Use for: finding AFEs, specialists, Field CTOs by workload or region, listing who supports specific markets (AMS, USMajors, EMEA, APJ), filtering by role criteria. Triggers: who supports, which AFEs, list specialists, roster query, headcount query, find people in."
+description: "Query specialist/headcount roster from Snowflake to find people by ETM Role, Territory, Market, Theater, or Region. Use for: finding AFEs, specialists, Industry Principals by territory or region, listing who supports specific markets (AMS, USMajors, EMEA, APJ), filtering by role criteria. Triggers: who supports, which AFEs, list specialists, roster query, headcount query, find people in."
 ---
 
 # Specialist Roster Query
 
-Query Excel roster files to find specialists, AFEs, and other personnel by various criteria.
+Query Snowflake roster data to find specialists, AFEs, and other personnel by various criteria.
 
 ## When to Use
 
-- User asks "who supports [workload] in [region/scope]"
+- User asks "who supports [territory] in [region/market]"
 - User asks "which AFEs/specialists support [criteria]"
-- User asks to list people by F3 Function, Workload, Sales Scope, or Sales Region
-- User provides an Excel file path and asks to filter/query personnel data
+- User asks to list people by ETM Role, Territory, Market, Theater, or Region
+- User asks about specialist coverage for a territory or market
+
+## Data Source
+
+The roster data comes from Snowflake tables:
+- `IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER` - Specialist assignments
+- `SALES.PLANNING.TERRITORY_HIERARCHY_FYPLANNING` - Territory hierarchy
+
+## Base Query
+
+Use this query as the foundation, adding WHERE clauses as needed:
+
+```sql
+WITH ranked AS (
+    SELECT 
+        s.D_PLANID AS PERSON_NAME,
+        s.ETM_ROLE,
+        s.TERRITORY_NAME,
+        s.D_TERRITORY_TYPE AS TERRITORY_TYPE,
+        t.MARKET_NAME,
+        COALESCE(t.THEATER_NAME, 'AMS Pooled') AS THEATER_NAME,
+        t.REGION_NAME,
+        ROW_NUMBER() OVER (PARTITION BY s.D_PLANID, s.ETM_ROLE, s.TERRITORY_NAME ORDER BY s.DS_DATE DESC) AS rn
+    FROM IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER s
+    LEFT JOIN SALES.PLANNING.TERRITORY_HIERARCHY_FYPLANNING t 
+        ON s.TERRITORY_NAME = t.TERRITORY_NAME
+    WHERE s.IS_ACTIVE = 1
+)
+SELECT 
+    PERSON_NAME,
+    ETM_ROLE,
+    TERRITORY_NAME,
+    TERRITORY_TYPE,
+    MARKET_NAME,
+    THEATER_NAME,
+    CASE 
+        WHEN REGION_NAME IS NULL AND THEATER_NAME = 'AMS Pooled' THEN 'AMS Pooled'
+        WHEN REGION_NAME IS NULL THEN THEATER_NAME || ' Pooled'
+        ELSE REGION_NAME
+    END AS REGION_NAME
+FROM ranked
+WHERE rn = 1
+ORDER BY PERSON_NAME
+```
 
 ## Workflow
 
-### Step 1: Identify File and Columns
+### Step 1: Understand the Request
 
-**Actions:**
-
-1. **Read** the Excel file to check available columns:
-```python
-import pandas as pd
-df = pd.read_excel('<FILE_PATH>')
-print(df.columns.tolist())
-```
-
-2. **Identify** key columns (names may vary between files):
-   - Name column: `Name`
-   - ID column: `EEID`
-   - Function: `F3 Function` (values: AFE, AFE Mgmt, Field CTO, etc.)
-   - Workload: `Workload` (values: AI/ML, ML, Data Engineering, OLTP, Analytics, Apps & Collab, etc.)
-   - Scope: `Sales Scope - Market or Theater` OR `Market or Theater` (values: AMS, USMajors, EMEA, APJ, AMSExpansion, etc.)
-   - Region: `Sales Region` (values: Pooled, FSI, HCLS, MFG, RCG, TMT, etc.)
-   - Derived: `Sales Scope` (combination of scope + region, e.g., "AMS - Pooled", "USMajors - RCG")
+Identify what the user is looking for:
+- **Role type**: AFE, Product AFE, Industry Principal, Value Engineer, Product Specialist, etc.
+- **Territory**: Specific territory name
+- **Market**: AMS, EMEA, APJ
+- **Theater**: USMajors, AMSExpansion, AMSAcquisition, USPubSec, EMEA, APJ
+- **Region**: FSI, HCLS, MFG, RCG, TMT, Federal, SLED, specific expansion regions
 
 ### Step 2: Build Query Filter
 
-**Common Filter Patterns:**
+Add WHERE clauses to the base query's outer SELECT based on user criteria:
 
-```python
-# Filter by F3 Function (exclude managers if requested)
-df[df['F3 Function'] == 'AFE']  # AFE only, no managers
-df[df['F3 Function'].str.contains('AFE', case=False, na=False)]  # AFE and AFE Mgmt
+```sql
+-- Filter by ETM Role (case-insensitive pattern match)
+WHERE ETM_ROLE ILIKE '%AFE%'
+WHERE ETM_ROLE = 'Product AFE'
+WHERE ETM_ROLE IN ('Product AFE', 'Team AFE')
 
-# Filter by Workload
-df[df['Workload'].str.contains('AI|ML', case=False, na=False)]  # AI/ML or ML
-df[df['Workload'].str.contains('Data Engineering', case=False, na=False)]
+-- Filter by Market
+WHERE MARKET_NAME = 'AMS'
+WHERE MARKET_NAME IN ('AMS', 'EMEA')
 
-# Filter by Sales Scope (Market or Theater)
-df[df['<SCOPE_COLUMN>'] == 'AMS']
-df[df['<SCOPE_COLUMN>'].isin(['AMS', 'USMajors'])]
+-- Filter by Theater
+WHERE THEATER_NAME = 'USMajors'
+WHERE THEATER_NAME ILIKE '%Expansion%'
 
-# Filter by Sales Region
-df[df['Sales Region'] == 'Pooled']
-df[df['Sales Region'].isin(['RCG', 'FSI', 'HCLS'])]
+-- Filter by Region
+WHERE REGION_NAME = 'FSI'
+WHERE REGION_NAME ILIKE '%Pooled%'
 
-# Combined: Scope + Region (e.g., "USMajors - RCG" or "AMS Pooled")
-df[
-    ((df['<SCOPE_COLUMN>'] == 'USMajors') & (df['Sales Region'] == 'RCG')) |
-    ((df['<SCOPE_COLUMN>'] == 'AMS') & (df['Sales Region'] == 'Pooled'))
-]
+-- Filter by Territory
+WHERE TERRITORY_NAME ILIKE '%FSI%'
 
-# Exclude empty/invalid entries
-df[df['EEID'].notna()]
+-- Exclude managers
+WHERE ETM_ROLE NOT ILIKE '%Manager%'
+
+-- Combined filters
+WHERE ETM_ROLE ILIKE '%AFE%'
+  AND MARKET_NAME = 'AMS'
+  AND ETM_ROLE NOT ILIKE '%Manager%'
 ```
 
 ### Step 3: Execute Query and Format Output
 
-**Standard Query Template:**
+Run the query via Snowflake SQL execution and present results as a markdown table.
 
-```python
-import pandas as pd
+**Example Query for AFEs in AMS (no managers):**
 
-df = pd.read_excel('<FILE_PATH>')
-
-# Determine correct column names
-scope_col = 'Sales Scope - Market or Theater' if 'Sales Scope - Market or Theater' in df.columns else 'Market or Theater'
-
-# Apply filters based on user criteria
-filtered = df[
-    (df['F3 Function'] == 'AFE') &  # Adjust based on request
-    (df['Workload'].str.contains('<WORKLOAD_PATTERN>', case=False, na=False)) &
-    (df['EEID'].notna()) &
-    (
-        # Scope/Region conditions
-        ((df[scope_col] == '<SCOPE1>') & (df['Sales Region'] == '<REGION1>')) |
-        ((df[scope_col] == '<SCOPE2>') & (df['Sales Region'] == '<REGION2>'))
-    )
-].copy()
-
-# Clean name (remove EEID suffix if present, show "Open Position" for position IDs)
-filtered['Clean Name'] = filtered['Name'].apply(
-    lambda x: 'Open Position' if str(x).startswith('POS') else (x.split('(')[0].strip() if '(' in str(x) else x)
+```sql
+WITH ranked AS (
+    SELECT 
+        s.D_PLANID AS PERSON_NAME,
+        s.ETM_ROLE,
+        s.TERRITORY_NAME,
+        s.D_TERRITORY_TYPE AS TERRITORY_TYPE,
+        t.MARKET_NAME,
+        COALESCE(t.THEATER_NAME, 'AMS Pooled') AS THEATER_NAME,
+        t.REGION_NAME,
+        ROW_NUMBER() OVER (PARTITION BY s.D_PLANID, s.ETM_ROLE, s.TERRITORY_NAME ORDER BY s.DS_DATE DESC) AS rn
+    FROM IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER s
+    LEFT JOIN SALES.PLANNING.TERRITORY_HIERARCHY_FYPLANNING t 
+        ON s.TERRITORY_NAME = t.TERRITORY_NAME
+    WHERE s.IS_ACTIVE = 1
 )
-
-# Sort results
-filtered = filtered.sort_values(['<SORT_COL>', 'Clean Name'])
-
-# Display results
-unique_count = filtered['EEID'].nunique()
-print(f'Results: {unique_count} unique people')
-print()
-print(filtered[['Clean Name', 'F3 Function', 'Workload', scope_col, 'Sales Region']].to_string(index=False))
+SELECT 
+    PERSON_NAME,
+    ETM_ROLE,
+    TERRITORY_NAME,
+    TERRITORY_TYPE,
+    MARKET_NAME,
+    THEATER_NAME,
+    CASE 
+        WHEN REGION_NAME IS NULL AND THEATER_NAME = 'AMS Pooled' THEN 'AMS Pooled'
+        WHEN REGION_NAME IS NULL THEN THEATER_NAME || ' Pooled'
+        ELSE REGION_NAME
+    END AS REGION_NAME
+FROM ranked
+WHERE rn = 1
+  AND ETM_ROLE ILIKE '%AFE%'
+  AND MARKET_NAME = 'AMS'
+  AND ETM_ROLE NOT ILIKE '%Manager%'
+ORDER BY PERSON_NAME
 ```
 
 ## Key Reference Values
 
-### F3 Function Values
-- `AFE` - Applied Field Engineer (individual contributor)
-- `AFE Mgmt` - AFE Manager
-- `Field CTO` - Field CTO (individual contributor)
-- `Field CTO Mgmt` - Field CTO Manager
-- `Data Cloud Specialist` - Data Cloud Specialist
-- `AI Specialist`, `Solution Innovation` - Other specialist roles
+### ETM Role Values
+- `Product AFE` - Product Applied Field Engineer
+- `Product AFE Manager` - Product AFE Manager
+- `Team AFE` - Team AFE
+- `Industry Principal` - Industry Principal
+- `Industry Principal Manager` - Industry Principal Manager
+- `Team Industry Principal` - Team Industry Principal
+- `Industry Architect` - Industry Architect
+- `Industry Architect Manager` - Industry Architect Manager
+- `Team Industry Architect` - Team Industry Architect Manager
+- `Value Engineer` - Value Engineer
+- `Product Specialist` - Product Specialist
+- `Product Specialist Manager` - Product Specialist Manager
+- `Territory Visibility` - Territory visibility assignment
+- `FinOps` - FinOps role
 
-### Workload Values
-- `AI/ML` - AI/ML workload
-- `ML` - Machine Learning specific
-- `Data Engineering` - Data Engineering workload
-- `OLTP` - OLTP workload
-- `Analytics` - Analytics workload
-- `Apps & Collab` - Applications & Collaboration
+### Territory Type Values
+- `Market` - Market-level territory
+- `Theater` - Theater-level territory
+- `Region` - Region-level territory
+- `Patch` - Patch-level territory (usually industry-specific)
+- `District` - District-level territory
+- `Global` - Global territory
 
-### Sales Scope (Market or Theater) Values
-- `AMS` - Americas (pooled)
-- `USMajors` - US Major accounts (with specific regions)
+### Market Values
+- `AMS` - Americas
+- `EMEA_Mkt` - Europe/Middle East/Africa (in MARKET_NAME)
+- `APJ_Mkt` - Asia Pacific Japan (in MARKET_NAME)
+
+### Theater Values
+- `USMajors` - US Major accounts
 - `AMSExpansion` - Americas Expansion
 - `AMSAcquisition` - Americas Acquisition
 - `USPubSec` - US Public Sector
 - `EMEA` - Europe/Middle East/Africa
 - `APJ` - Asia Pacific Japan
+- `AMS Pooled` - AMS Pooled (default when no theater match)
 
-### Sales Region Values
-- `Pooled` - Pooled across all regions in scope
+### Region Values
 - `FSI`, `FSIGlobals` - Financial Services
 - `HCLS` - Healthcare & Life Sciences
 - `MFG` - Manufacturing
 - `RCG` - Retail & Consumer Goods
 - `TMT` - Technology, Media, Telecom
 - `Federal`, `SLED` - Government
-- `LATAM`, `CanadaExp` - Geographic regions
-- Various expansion regions: `NortheastExp`, `SouthwestExp`, etc.
+- `Commercial` - Commercial segment
+- `ANZ` - Australia/New Zealand
+- Geographic expansion regions: `NortheastExp`, `SoutheastExp`, `SouthwestExp`, `NorthwestExp`, `CentralExp`, `USGrowthExp`, `CanadaExp`
+- `LATAM` - Latin America
+- `UK`, `META`, `SouthEMEA`, `EMEACommercial` - EMEA regions
+- Various `*Pooled` designations for pooled coverage
 
 ## Output Format
 
 Present results as a markdown table with:
 1. Count of unique people and total assignments
-2. Table with requested columns (Name, F3 Function, Workload, Sales Scope, Sales Region)
+2. Table with relevant columns (Person Name, ETM Role, Territory, Theater, Region)
 3. Summary by key groupings if relevant
 
 **Example Output:**
 ```
-## AFEs Supporting Data Engineering in USMajors-RCG or AMS Pooled (No Managers): 7
+## Product AFEs Supporting AMS (No Managers): 15 people
 
-| Name | F3 Function | Workload | Sales Scope | Sales Region |
-|------|-------------|----------|-------------|--------------|
-| Jason Hughes | AFE | Data Engineering | AMS | Pooled |
-| Marc Henderson | AFE | Data Engineering | USMajors | RCG |
+| Person Name | ETM Role | Territory | Theater | Region |
+|-------------|----------|-----------|---------|--------|
+| Adam Timm (18131) | Product AFE | CommAcqWest | AMSAcquisition | CommAcqWest |
+| Adam Timm (18131) | Product AFE | USGrowthExp | AMSExpansion | USGrowthExp |
 ...
 
 **Summary:**
-- **6 AFEs** in AMS Pooled
-- **1 AFE** (Marc Henderson) in USMajors - RCG
+- **8** in AMSExpansion
+- **5** in AMSAcquisition
+- **2** in USMajors
 ```
 
 ## Common Query Patterns
 
-### "Who supports AI/ML in AMS or USMajors"
-Filter: `Workload contains AI|ML` AND `Scope in [AMS, USMajors]`
+### "Who supports FSI"
+Add: `WHERE REGION_NAME = 'FSI' OR TERRITORY_NAME ILIKE '%FSI%'`
 
-### "Which AFEs support RCG"
-Filter: `F3 Function = AFE` AND `Sales Region = RCG`
+### "Which Product AFEs support USMajors"
+Add: `WHERE ETM_ROLE = 'Product AFE' AND THEATER_NAME = 'USMajors'`
 
-### "List specialists in USMajors (no managers)"
-Filter: `F3 Function = <type>` (not containing Mgmt) AND `Scope = USMajors`
+### "List Industry Principals in EMEA"
+Add: `WHERE ETM_ROLE ILIKE '%Industry Principal%' AND THEATER_NAME = 'EMEA'`
 
-### "Who supports [Scope] - [Region]" (e.g., "USMajors - RCG")
-Filter: `Scope = USMajors` AND `Sales Region = RCG`
+### "Who supports Healthcare"
+Add: `WHERE TERRITORY_NAME ILIKE '%Healthcare%' OR TERRITORY_NAME ILIKE '%HCLS%' OR REGION_NAME = 'HCLS'`
+
+### "AFEs in AMS Pooled (no managers)"
+Add: `WHERE ETM_ROLE ILIKE '%AFE%' AND ETM_ROLE NOT ILIKE '%Manager%' AND REGION_NAME = 'AMS Pooled'`
 
 ## Notes
 
-- Always check column names first - they vary between file versions
-- `EEID.notna()` filters out open positions/placeholder rows
-- Some files have `Sales Scope - Market or Theater`, others have separate `Market or Theater` and `Sales Scope` columns
-- "Pooled" region means the person supports all regions within their scope
-- USMajors always has specific regions (FSI, HCLS, etc.), not Pooled
+- The query uses ROW_NUMBER to deduplicate by taking the most recent record (by DS_DATE) for each person-role-territory combination
+- `IS_ACTIVE = 1` filters to only active assignments
+- The COALESCE on THEATER_NAME defaults to 'AMS Pooled' when no territory hierarchy match is found
+- The CASE statement for REGION_NAME creates "Pooled" designations when no specific region exists
+- Some people have multiple rows due to multiple territory assignments - this is expected
+- Use ILIKE for case-insensitive pattern matching in Snowflake
