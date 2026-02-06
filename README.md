@@ -2,11 +2,48 @@
 
 A Cortex Code skill for querying specialist/headcount roster data from Snowflake to find people by ETM Role, Territory, Market, Theater, Region, or other criteria.
 
-## Installation
+## Quick Start
 
-Copy `SKILL.md` to your Cortex Code skills directory:
+### Prerequisites
 
+- [Cortex Code CLI](https://docs.snowflake.com/user-guide/snowflake-cortex/cortex-agents) installed
+- Snowflake connection configured with access to:
+  - `IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER`
+  - `SALES.PLANNING.TERRITORY_HIERARCHY_FYPLANNING`
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/sfc-gh-michael-lemke/specialist-roster-query.git
+   cd specialist-roster-query
+   ```
+
+2. **Create the skills directory (if it doesn't exist):**
+   ```bash
+   mkdir -p ~/.cortex/skills/specialist-roster-query
+   ```
+
+3. **Copy the skill file:**
+   ```bash
+   cp SKILL.md ~/.cortex/skills/specialist-roster-query/SKILL.md
+   ```
+
+4. **Verify installation:**
+   ```bash
+   ls ~/.cortex/skills/specialist-roster-query/
+   # Should show: SKILL.md
+   ```
+
+5. **Start using it:**
+   Open Cortex Code and ask a question like "who supports USMajors"
+
+### Updating
+
+To get the latest version:
 ```bash
+cd specialist-roster-query
+git pull
 cp SKILL.md ~/.cortex/skills/specialist-roster-query/SKILL.md
 ```
 
@@ -88,6 +125,20 @@ Queries Snowflake tables:
 | "which Product AFEs support FSI" | Product AFEs assigned to FSI region |
 | "list Industry Principals in EMEA" | Industry Principals in EMEA theater |
 | "who are the AFE managers" | AFE managers (managers explicitly requested) |
+
+## Troubleshooting
+
+### Skill not triggering
+- Verify the skill file is in the correct location: `~/.cortex/skills/specialist-roster-query/SKILL.md`
+- Restart Cortex Code after installing
+
+### Query errors
+- Ensure your Snowflake connection has SELECT access to both source tables
+- Check that your connection is set correctly in Cortex Code
+
+### Unexpected results
+- The skill excludes managers by default - explicitly ask for managers if needed
+- One person can appear multiple times if they have multiple territory assignments
 
 ## License
 
