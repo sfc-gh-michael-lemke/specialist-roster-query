@@ -90,38 +90,46 @@ Identify what the user is looking for:
 - **Theater**: USMajors, AMSExpansion, AMSAcquisition, USPubSec, EMEA, APJ
 - **Region**: FSI, HCLS, MFG, RCG, TMT, Federal, SLED, specific expansion regions
 
+**IMPORTANT - Manager Exclusion Rule:**
+- By default, **exclude managers** when answering "who supports X" questions
+- Only include managers if the user **explicitly asks** for them (e.g., "who are the managers", "include managers", "list AFE managers")
+- Always add `AND ETM_ROLE NOT ILIKE '%Manager%'` unless managers are specifically requested
+
 ### Step 2: Build Query Filter
 
 Add WHERE clauses to the base query's outer SELECT based on user criteria:
 
 ```sql
--- Filter by ETM Role (case-insensitive pattern match)
-WHERE ETM_ROLE ILIKE '%AFE%'
-WHERE ETM_ROLE = 'Product AFE'
-WHERE ETM_ROLE IN ('Product AFE', 'Team AFE')
-
--- Filter by Market
-WHERE MARKET_NAME = 'AMS'
-WHERE MARKET_NAME IN ('AMS', 'EMEA')
-
--- Filter by Theater
-WHERE THEATER_NAME = 'USMajors'
-WHERE THEATER_NAME ILIKE '%Expansion%'
-
--- Filter by Region
-WHERE REGION_NAME = 'FSI'
-WHERE REGION_NAME ILIKE '%Pooled%'
-
--- Filter by Territory
-WHERE TERRITORY_NAME ILIKE '%FSI%'
-
--- Exclude managers
+-- ALWAYS exclude managers by default (unless explicitly requested)
 WHERE ETM_ROLE NOT ILIKE '%Manager%'
 
--- Combined filters
+-- Filter by ETM Role (case-insensitive pattern match)
+  AND ETM_ROLE ILIKE '%AFE%'
+  AND ETM_ROLE = 'Product AFE'
+  AND ETM_ROLE IN ('Product AFE', 'Team AFE')
+
+-- Filter by Market
+  AND MARKET_NAME = 'AMS'
+  AND MARKET_NAME IN ('AMS', 'EMEA')
+
+-- Filter by Theater
+  AND THEATER_NAME = 'USMajors'
+  AND THEATER_NAME ILIKE '%Expansion%'
+
+-- Filter by Region
+  AND REGION_NAME = 'FSI'
+  AND REGION_NAME ILIKE '%Pooled%'
+
+-- Filter by Territory
+  AND TERRITORY_NAME ILIKE '%FSI%'
+
+-- Example: AFEs in AMS (managers excluded by default)
 WHERE ETM_ROLE ILIKE '%AFE%'
   AND MARKET_NAME = 'AMS'
   AND ETM_ROLE NOT ILIKE '%Manager%'
+
+-- Example: Include managers (only when explicitly requested)
+WHERE ETM_ROLE ILIKE '%AFE Manager%'
 ```
 
 ### Step 3: Execute Query and Format Output
@@ -276,20 +284,27 @@ ORDER BY HEADCOUNT DESC
 
 ## Common Query Patterns
 
+**Note:** All patterns below assume managers are excluded by default. Add `AND ETM_ROLE NOT ILIKE '%Manager%'` to every query.
+
 ### "Who supports FSI"
-Add: `WHERE REGION_NAME = 'FSI' OR TERRITORY_NAME ILIKE '%FSI%'`
+Add: `WHERE (REGION_NAME = 'FSI' OR TERRITORY_NAME ILIKE '%FSI%') AND ETM_ROLE NOT ILIKE '%Manager%'`
 
 ### "Which Product AFEs support USMajors"
 Add: `WHERE ETM_ROLE = 'Product AFE' AND THEATER_NAME = 'USMajors'`
+(No manager filter needed - Product AFE is not a manager role)
 
 ### "List Industry Principals in EMEA"
-Add: `WHERE ETM_ROLE ILIKE '%Industry Principal%' AND THEATER_NAME = 'EMEA'`
+Add: `WHERE ETM_ROLE = 'Industry Principal' AND THEATER_NAME = 'EMEA'`
+(Use exact match to exclude Industry Principal Manager)
 
 ### "Who supports Healthcare"
-Add: `WHERE TERRITORY_NAME ILIKE '%Healthcare%' OR TERRITORY_NAME ILIKE '%HCLS%' OR REGION_NAME = 'HCLS'`
+Add: `WHERE (TERRITORY_NAME ILIKE '%Healthcare%' OR TERRITORY_NAME ILIKE '%HCLS%' OR REGION_NAME = 'HCLS') AND ETM_ROLE NOT ILIKE '%Manager%'`
 
-### "AFEs in AMS Pooled (no managers)"
+### "AFEs in AMS Pooled"
 Add: `WHERE ETM_ROLE ILIKE '%AFE%' AND ETM_ROLE NOT ILIKE '%Manager%' AND REGION_NAME = 'AMS Pooled'`
+
+### "Who are the AFE managers" (managers explicitly requested)
+Add: `WHERE ETM_ROLE ILIKE '%AFE Manager%'`
 
 ## Notes
 
@@ -298,4 +313,5 @@ Add: `WHERE ETM_ROLE ILIKE '%AFE%' AND ETM_ROLE NOT ILIKE '%Manager%' AND REGION
 - **Industry patch territories** (e.g., `MediaEnt_EMEA`, `FinalServ_APJ`, `HealthcareLS_USMajors`) don't exist in the territory hierarchy table, so the query parses the suffix (`_EMEA`, `_APJ`, `_USMajors`, etc.) to derive the correct theater
 - The CASE statements derive THEATER_NAME and REGION_NAME from territory name suffixes when no hierarchy match is found
 - **One person can have multiple rows due to multiple territory assignments** - always count unique PERSON_NAME for headcount
+- **Exclude managers by default** - only include managers when explicitly requested
 - Use ILIKE for case-insensitive pattern matching in Snowflake
