@@ -1,6 +1,7 @@
 ---
 name: specialist-roster-query
-description: "Query specialist/headcount roster from Snowflake to find people by ETM Role, Territory, Market, Theater, or Region. Use for: finding AFEs, specialists, Industry Principals by territory or region, listing who supports specific markets (AMS, USMajors, EMEA, APJ), filtering by role criteria. Triggers: who supports, which AFEs, list specialists, roster query, headcount query, find people in."
+location: project
+description: "Query specialist roster from Snowflake by ETM Role, Territory, Market, Theater, or Region. Triggers: who supports, which AFEs, list specialists, roster query, headcount query."
 ---
 
 # Specialist Roster Query
@@ -305,6 +306,31 @@ Add: `WHERE ETM_ROLE ILIKE '%AFE%' AND ETM_ROLE NOT ILIKE '%Manager%' AND REGION
 
 ### "Who are the AFE managers" (managers explicitly requested)
 Add: `WHERE ETM_ROLE ILIKE '%AFE Manager%'`
+
+## Error Handling
+
+Handle these common scenarios gracefully:
+
+### No Results Found
+If the query returns zero rows:
+- Confirm the filter criteria with the user
+- Suggest broadening the search (e.g., remove region filter, use ILIKE patterns)
+- Check for typos in filter values
+
+### Table Access Errors
+If you receive permission or object-not-found errors:
+- Inform the user they need SELECT access to both source tables
+- Suggest checking their Snowflake connection configuration
+
+### Invalid Filter Values
+If the user provides an unrecognized filter value:
+- Show them the valid options from the Key Reference Values section
+- Suggest the closest matching value if possible
+
+### Ambiguous Requests
+If the user's request is unclear:
+- Ask clarifying questions before running queries
+- Example: "Do you want all AFE roles (Product AFE + Team AFE) or just Product AFEs?"
 
 ## Notes
 

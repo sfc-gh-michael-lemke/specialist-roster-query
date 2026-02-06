@@ -7,44 +7,31 @@ A Cortex Code skill for querying specialist/headcount roster data from Snowflake
 ### Prerequisites
 
 - [Cortex Code CLI](https://docs.snowflake.com/user-guide/snowflake-cortex/cortex-agents) installed
-- Snowflake connection configured with access to:
-  - `IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER`
-  - `SALES.PLANNING.TERRITORY_HIERARCHY_FYPLANNING`
+- Snowflake connection configured with access to the source tables (see [Data Source](#data-source))
 
 ### Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/sfc-gh-michael-lemke/specialist-roster-query.git
-   cd specialist-roster-query
-   ```
+**Option 1: Using the install script (recommended)**
+```bash
+git clone https://github.com/sfc-gh-michael-lemke/specialist-roster-query.git
+cd specialist-roster-query
+./install.sh
+```
 
-2. **Create the skills directory (if it doesn't exist):**
-   ```bash
-   mkdir -p ~/.cortex/skills/specialist-roster-query
-   ```
-
-3. **Copy the skill file:**
-   ```bash
-   cp SKILL.md ~/.cortex/skills/specialist-roster-query/SKILL.md
-   ```
-
-4. **Verify installation:**
-   ```bash
-   ls ~/.cortex/skills/specialist-roster-query/
-   # Should show: SKILL.md
-   ```
-
-5. **Start using it:**
-   Open Cortex Code and ask a question like "who supports USMajors"
+**Option 2: Manual installation**
+```bash
+git clone https://github.com/sfc-gh-michael-lemke/specialist-roster-query.git
+cd specialist-roster-query
+mkdir -p ~/.cortex/skills/specialist-roster-query
+cp SKILL.md ~/.cortex/skills/specialist-roster-query/SKILL.md
+```
 
 ### Updating
 
-To get the latest version:
 ```bash
 cd specialist-roster-query
 git pull
-cp SKILL.md ~/.cortex/skills/specialist-roster-query/SKILL.md
+./install.sh
 ```
 
 ## Usage
@@ -59,6 +46,8 @@ The skill auto-triggers when you ask questions like:
 Or invoke directly with `/specialist-roster-query`.
 
 ## Data Source
+
+> **Note:** Table names include fiscal year identifiers (e.g., `FY27`). These tables are updated annually. Check the [SKILL.md](SKILL.md) for current table names and update after fiscal year transitions.
 
 Queries Snowflake tables:
 - `IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER` - Specialist assignments
@@ -76,45 +65,13 @@ Queries Snowflake tables:
 
 ## Supported Filter Values
 
-### ETM Role (Individual Contributors)
-- `Product AFE` - Product Applied Field Engineer
-- `Team AFE` - Team AFE
-- `Industry Principal` - Industry Principal
-- `Industry Architect` - Industry Architect
-- `Value Engineer` - Value Engineer
-- `Product Specialist` - Product Specialist
-- `FinOps` - FinOps
+For the complete list of supported filter values (ETM Roles, Markets, Theaters, Regions), see [SKILL.md](SKILL.md#key-reference-values).
 
-### ETM Role (Managers - only when explicitly requested)
-- `Product AFE Manager`
-- `Industry Principal Manager`
-- `Industry Architect Manager`
-- `Product Specialist Manager`
-
-### Market
-- `AMS` - Americas
-- `EMEA_Mkt` - Europe/Middle East/Africa
-- `APJ_Mkt` - Asia Pacific Japan
-
-### Theater
-- `USMajors` - US Major accounts
-- `AMSExpansion` - Americas Expansion
-- `AMSAcquisition` - Americas Acquisition
-- `USPubSec` - US Public Sector
-- `EMEA` - Europe/Middle East/Africa
-- `APJ` - Asia Pacific Japan
-- `AMS` - Americas (pooled)
-
-### Region
-- `FSI`, `FSIGlobals` - Financial Services
-- `HCLS` - Healthcare & Life Sciences
-- `MFG` - Manufacturing
-- `RCG` - Retail & Consumer Goods
-- `TMT` - Technology, Media, Telecom
-- `Federal`, `SLED` - Government
-- `Commercial` - Commercial segment
-- Geographic: `NortheastExp`, `SoutheastExp`, `SouthwestExp`, `NorthwestExp`, `CentralExp`, `USGrowthExp`, `CanadaExp`, `LATAM`, `ANZ`, `UK`, `META`, `SouthEMEA`, `EMEACommercial`
-- Various `*Pooled` designations for pooled coverage
+**Quick reference:**
+- **Roles**: Product AFE, Team AFE, Industry Principal, Industry Architect, Value Engineer, Product Specialist, FinOps
+- **Markets**: AMS, EMEA_Mkt, APJ_Mkt
+- **Theaters**: USMajors, AMSExpansion, AMSAcquisition, USPubSec, EMEA, APJ
+- **Regions**: FSI, HCLS, MFG, RCG, TMT, Federal, SLED, Commercial, and geographic regions
 
 ## Example Queries
 
@@ -140,6 +97,10 @@ Queries Snowflake tables:
 - The skill excludes managers by default - explicitly ask for managers if needed
 - One person can appear multiple times if they have multiple territory assignments
 
+## Version
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
 ## License
 
-MIT
+MIT - See [LICENSE](LICENSE) for details.
