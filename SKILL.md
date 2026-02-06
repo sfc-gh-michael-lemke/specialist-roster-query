@@ -32,7 +32,7 @@ WITH ranked AS (
         s.TERRITORY_NAME,
         s.D_TERRITORY_TYPE AS TERRITORY_TYPE,
         t.MARKET_NAME,
-        COALESCE(t.THEATER_NAME, 'AMS Pooled') AS THEATER_NAME,
+        t.THEATER_NAME AS RAW_THEATER_NAME,
         t.REGION_NAME,
         ROW_NUMBER() OVER (PARTITION BY s.D_PLANID, s.ETM_ROLE, s.TERRITORY_NAME ORDER BY s.DS_DATE DESC) AS rn
     FROM IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER s
@@ -46,11 +46,33 @@ SELECT
     TERRITORY_NAME,
     TERRITORY_TYPE,
     MARKET_NAME,
-    THEATER_NAME,
+    -- Derive theater from territory name suffix if no hierarchy match
     CASE 
-        WHEN REGION_NAME IS NULL AND THEATER_NAME = 'AMS Pooled' THEN 'AMS Pooled'
-        WHEN REGION_NAME IS NULL THEN THEATER_NAME || ' Pooled'
-        ELSE REGION_NAME
+        WHEN RAW_THEATER_NAME IS NOT NULL THEN RAW_THEATER_NAME
+        WHEN TERRITORY_NAME ILIKE '%_EMEA' THEN 'EMEA'
+        WHEN TERRITORY_NAME ILIKE '%_APJ' THEN 'APJ'
+        WHEN TERRITORY_NAME ILIKE '%_USMajors' THEN 'USMajors'
+        WHEN TERRITORY_NAME ILIKE '%_USPubSec' THEN 'USPubSec'
+        WHEN TERRITORY_NAME ILIKE '%_AMSExpansion' THEN 'AMSExpansion'
+        WHEN TERRITORY_NAME ILIKE '%_AMSAcquisition' THEN 'AMSAcquisition'
+        WHEN MARKET_NAME = 'AMS' THEN 'AMS'
+        WHEN MARKET_NAME = 'EMEA_Mkt' THEN 'EMEA'
+        WHEN MARKET_NAME = 'APJ_Mkt' THEN 'APJ'
+        ELSE 'AMS'
+    END AS THEATER_NAME,
+    -- Derive region from territory name suffix if no hierarchy match
+    CASE 
+        WHEN REGION_NAME IS NOT NULL THEN REGION_NAME
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_EMEA' THEN 'EMEA Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_APJ' THEN 'APJ Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_USMajors' THEN 'USMajors Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_USPubSec' THEN 'USPubSec Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_AMSExpansion' THEN 'AMSExpansion Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_AMSAcquisition' THEN 'AMSAcquisition Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_Ind' THEN 'Industries Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_Mkt' THEN 'Market Pooled'
+        WHEN RAW_THEATER_NAME IS NOT NULL THEN RAW_THEATER_NAME || ' Pooled'
+        ELSE 'AMS Pooled'
     END AS REGION_NAME
 FROM ranked
 WHERE rn = 1
@@ -116,7 +138,7 @@ WITH ranked AS (
         s.TERRITORY_NAME,
         s.D_TERRITORY_TYPE AS TERRITORY_TYPE,
         t.MARKET_NAME,
-        COALESCE(t.THEATER_NAME, 'AMS Pooled') AS THEATER_NAME,
+        t.THEATER_NAME AS RAW_THEATER_NAME,
         t.REGION_NAME,
         ROW_NUMBER() OVER (PARTITION BY s.D_PLANID, s.ETM_ROLE, s.TERRITORY_NAME ORDER BY s.DS_DATE DESC) AS rn
     FROM IT.PIGMENT.RAW_FY27_SFDC_DEPLOYMENT_SPECIALIST_USER s
@@ -130,11 +152,31 @@ SELECT
     TERRITORY_NAME,
     TERRITORY_TYPE,
     MARKET_NAME,
-    THEATER_NAME,
     CASE 
-        WHEN REGION_NAME IS NULL AND THEATER_NAME = 'AMS Pooled' THEN 'AMS Pooled'
-        WHEN REGION_NAME IS NULL THEN THEATER_NAME || ' Pooled'
-        ELSE REGION_NAME
+        WHEN RAW_THEATER_NAME IS NOT NULL THEN RAW_THEATER_NAME
+        WHEN TERRITORY_NAME ILIKE '%_EMEA' THEN 'EMEA'
+        WHEN TERRITORY_NAME ILIKE '%_APJ' THEN 'APJ'
+        WHEN TERRITORY_NAME ILIKE '%_USMajors' THEN 'USMajors'
+        WHEN TERRITORY_NAME ILIKE '%_USPubSec' THEN 'USPubSec'
+        WHEN TERRITORY_NAME ILIKE '%_AMSExpansion' THEN 'AMSExpansion'
+        WHEN TERRITORY_NAME ILIKE '%_AMSAcquisition' THEN 'AMSAcquisition'
+        WHEN MARKET_NAME = 'AMS' THEN 'AMS'
+        WHEN MARKET_NAME = 'EMEA_Mkt' THEN 'EMEA'
+        WHEN MARKET_NAME = 'APJ_Mkt' THEN 'APJ'
+        ELSE 'AMS'
+    END AS THEATER_NAME,
+    CASE 
+        WHEN REGION_NAME IS NOT NULL THEN REGION_NAME
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_EMEA' THEN 'EMEA Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_APJ' THEN 'APJ Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_USMajors' THEN 'USMajors Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_USPubSec' THEN 'USPubSec Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_AMSExpansion' THEN 'AMSExpansion Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_AMSAcquisition' THEN 'AMSAcquisition Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_Ind' THEN 'Industries Pooled'
+        WHEN RAW_THEATER_NAME IS NULL AND TERRITORY_NAME ILIKE '%_Mkt' THEN 'Market Pooled'
+        WHEN RAW_THEATER_NAME IS NOT NULL THEN RAW_THEATER_NAME || ' Pooled'
+        ELSE 'AMS Pooled'
     END AS REGION_NAME
 FROM ranked
 WHERE rn = 1
@@ -253,7 +295,7 @@ Add: `WHERE ETM_ROLE ILIKE '%AFE%' AND ETM_ROLE NOT ILIKE '%Manager%' AND REGION
 
 - The query uses ROW_NUMBER to deduplicate by taking the most recent record (by DS_DATE) for each person-role-territory combination
 - `IS_ACTIVE = 1` filters to only active assignments
-- The COALESCE on THEATER_NAME defaults to 'AMS Pooled' when no territory hierarchy match is found
-- The CASE statement for REGION_NAME creates "Pooled" designations when no specific region exists
+- **Industry patch territories** (e.g., `MediaEnt_EMEA`, `FinalServ_APJ`, `HealthcareLS_USMajors`) don't exist in the territory hierarchy table, so the query parses the suffix (`_EMEA`, `_APJ`, `_USMajors`, etc.) to derive the correct theater
+- The CASE statements derive THEATER_NAME and REGION_NAME from territory name suffixes when no hierarchy match is found
 - **One person can have multiple rows due to multiple territory assignments** - always count unique PERSON_NAME for headcount
 - Use ILIKE for case-insensitive pattern matching in Snowflake
